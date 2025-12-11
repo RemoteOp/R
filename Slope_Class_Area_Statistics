@@ -1,0 +1,42 @@
+library(terra)
+library(ggplot2)
+
+# Load slope raster
+slope <- rast("DEM_AOI_slope_Translated.tif")
+
+# Ensure NA pixels are truly NA (not NaN)
+slope[is.nan(slope)] <- NA
+
+# Define slope classes
+classes <- c(0, 5, 10, 15, 20, 30, 40, 60, Inf)
+
+# Build classification matrix for terra::classify()
+m <- cbind(classes[-length(classes)], classes[-1], seq_along(classes[-1]))
+
+# Classify slope (correct raster method)
+slope_class <- classify(slope, m)
+
+# Frequency table
+freq_table <- as.data.frame(freq(slope_class))
+
+# Pixel area
+pixel_area_m2 <- prod(res(slope))
+freq_table$area_m2 <- freq_table$count * pixel_area_m2
+total_area <- sum(freq_table$area_m2)
+freq_table$percent <- 100 * freq_table$area_m2 / total_area
+
+print(freq_table)
+
+# Labels
+labels <- paste0(classes[-length(classes)], "–", classes[-1], "°")
+
+# Plot
+ggplot(freq_table, aes(x = factor(value), y = percent)) +
+  geom_bar(stat = "identity", fill = "#E69F00") +
+  labs(x = "Slope class (degrees)",
+       y = "Area (%)",
+       title = "Percentage of AOI area by slope class") +
+  scale_x_discrete(labels = labels) +
+  theme_minimal()
+
+write.csv(freq_table, "Slope_Class_Area_Statistics.csv", row.names = FALSE)
